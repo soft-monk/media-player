@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>media-player · 交互式运行态探针（有头 + 真实用户手势，本地零外网）</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f14;
+        color: #e5e7eb;
+        font: 12px/1.5 system-ui, 'Segoe UI', sans-serif;
+      }
+      #ik-stage {
+        width: 100vw;
+        height: 100vh;
+      }
+      /* 用户手势触发器：CDP 对它发真实鼠标事件（transient activation 的来源） */
+      #ik-activate {
+        position: fixed;
+        right: 8px;
+        bottom: 8px;
+        z-index: 99;
+        padding: 6px 10px;
+        font: inherit;
+      }
+      #ik-out {
+        position: fixed;
+        left: 6px;
+        top: 6px;
+        z-index: 99;
+        max-width: 60vw;
+        max-height: 60vh;
+        overflow: auto;
+        background: rgba(0, 0, 0, 0.72);
+        padding: 6px 8px;
+        margin: 0;
+        font: 11px/1.4 monospace;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ik-stage"></div>
+    <button id="ik-activate" type="button">user-gesture</button>
+    <pre id="ik-out">boot</pre>
+    <script type="module" src="./interactive.main.tsx"></script>
+  </body>
+</html>

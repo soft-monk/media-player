@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>media-player · 运行态探针（本地、零外网）</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f14;
+        color: #e5e7eb;
+        font: 12px/1.5 system-ui, 'Segoe UI', sans-serif;
+      }
+      #probe-stage {
+        width: 960px;
+        height: 540px;
+        margin: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="probe-stage"></div>
+    <script type="module" src="./runtime-probe.main.tsx"></script>
+  </body>
+</html>

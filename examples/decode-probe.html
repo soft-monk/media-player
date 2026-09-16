@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>media-player · 解码自检（无外网）</title>
+  </head>
+  <body>
+    <pre id="out">running</pre>
+    <video id="v" src="/media/sample-1.mp4" preload="auto" muted playsinline></video>
+    <img id="i" src="/media/seq/frame-000.png" alt="" />
+    <script>
+      // 极简解码探测：只把结果写进 DOM，由外部脚本（headless 浏览器）读取。
+      const out = document.getElementById('out')
+      const video = document.getElementById('v')
+      const img = document.getElementById('i')
+      const result = { videoReady: false, videoW: 0, videoH: 0, durationMs: 0, canPlay: '', imgW: 0, imgH: 0, error: null }
+
+      const finish = () => {
+        out.textContent = 'RESULT:' + JSON.stringify(result)
+      }
+
+      video.addEventListener('loadeddata', () => {
+        result.videoReady = true
+        result.videoW = video.videoWidth
+        result.videoH = video.videoHeight
+        result.durationMs = Number.isFinite(video.duration) ? Math.round(video.duration * 1000) : 0
+        result.canPlay = video.canPlayType('video/mp4; codecs="avc1.42E01E"') || 'no'
+        maybe()
+      })
+      video.addEventListener('error', () => {
+        result.error = 'video:' + (video.error ? video.error.code + '/' + video.error.message : 'unknown')
+        finish()
+      })
+      img.addEventListener('load', () => {
+        result.imgW = img.naturalWidth
+        result.imgH = img.naturalHeight
+        maybe()
+      })
+      img.addEventListener('error', () => {
+        result.error = 'img'
+        finish()
+      })
+
+      let videoDone = false
+      let imgDone = false
+      function maybe() {
+        videoDone = result.videoReady || !!result.error
+        imgDone = result.imgW > 0 || !!result.error
+        if (videoDone && imgDone) finish()
+      }
+      setTimeout(finish, 4000)
+    </script>
+  </body>
+</html>

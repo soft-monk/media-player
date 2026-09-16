@@ -3,6 +3,17 @@ build/
 dist/
 node_modules/
 
+# 本地生成/缓存（不进仓）
+.npm-cache/
+.chrome-profile/
+.chrome-assets-profile/
+.chrome-demo-profile/
+.chrome-playback-profile/
+.chrome-probe-profile/
+.chrome-fps-profile/
+tmp-probe/
+accept-*.log
+
 # 编辑器
 .vscode/
 .idea/

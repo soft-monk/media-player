@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "declarationDir": null,
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@media-player": ["./src/index.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["demo", "vite.config.ts", "vite.demo.config.ts", "src"]}

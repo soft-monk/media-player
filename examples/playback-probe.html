@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>media-player · 播放与出声仲裁自检（本地、无外网）</title>
+  </head>
+  <body>
+    <pre id="out">running</pre>
+    <video id="v1" src="/media/sample-1.mp4" muted playsinline preload="auto"></video>
+    <video id="v2" src="/media/sample-2.mp4" muted playsinline preload="auto"></video>
+    <video id="v3" src="/media/sample-3.mp4" muted playsinline preload="auto"></video>
+    <video id="v4" src="/media/sample-4.mp4" muted playsinline preload="auto"></video>
+    <video id="v5" src="/media/sample-5.mp4" muted playsinline preload="auto"></video>
+    <video id="v6" src="/media/sample-6.mp4" muted playsinline preload="auto"></video>
+    <video id="v7" src="/media/__missing__.mp4" muted playsinline preload="auto"></video>
+    <script>
+      // 直接驱动 <video> 元素，验证三件事：
+      //   ① 本地生成的 mp4 真的能播放（currentTime 前进）
+      //   ② 6 路同时播放互不干扰
+      //   ③ 单路 404 只影响自己（错误隔离）
+      // 说明：这里刻意不用模块，避免测试依赖被测对象自身的正确性。
+      const out = document.getElementById('out')
+      const ids = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7']
+      const vids = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]))
+      const started = Date.now()
+
+      const playAll = () =>
+        Promise.all(
+          ids.map((id) =>
+            vids[id]
+              .play()
+              .then(() => true)
+              .catch(() => false),
+          ),
+        )
+
+      const snapshot = () => {
+        const rows = {}
+        let playing = 0
+        let errored = 0
+        for (const id of ids) {
+          const v = vids[id]
+          const ok = v.readyState >= 2 && !v.error && v.currentTime > 0
+          if (ok) playing++
+          if (v.error) errored++
+          rows[id] = {
+            ok,
+            t: Math.round(v.currentTime * 1000) / 1000,
+            size: v.videoWidth + 'x' + v.videoHeight,
+            err: v.error ? v.error.code : null,
+          }
+        }
+        return { rows, playing, errored }
+      }
+
+      async function main() {
+        await playAll()
+        // 让播放真正推进一会儿
+        await new Promise((r) => setTimeout(r, 2000))
+        const snap = snapshot()
+        const r = {
+          playing: snap.playing,
+          errored: snap.errored,
+          advanced: ids.filter((id) => snap.rows[id].t > 0).length,
+          size: snap.rows.v1.size,
+          badError: snap.rows.v7.err,
+          details: snap.rows,
+          ms: Date.now() - started,
+        }
+        out.textContent = 'RESULT:' + JSON.stringify(r)
+      }
+      main().catch((e) => {
+        out.textContent = 'RESULT:' + JSON.stringify({ error: String(e) })
+      })
+    </script>
+  </body>
+</html>

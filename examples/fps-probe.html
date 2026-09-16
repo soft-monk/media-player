@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>media-player · 六路同屏渲染开销探针（本地、零外网）</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f14;
+        color: #e5e7eb;
+        font: 12px/1.5 system-ui, 'Segoe UI', sans-serif;
+      }
+      #stage {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        width: 100vw;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      .tile {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #1f2937;
+      }
+      video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #000;
+      }
+      /* 叠加层：每路 6 项角标 + 2 个锁定框（与真实使用同量级） */
+      .ov {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .corner {
+        position: absolute;
+        padding: 3px;
+        text-shadow: 0 0 3px #000;
+      }
+      .box {
+        position: absolute;
+        border: 2px solid #ef4444;
+        box-sizing: border-box;
+      }
+      .cross-v,
+      .cross-h {
+        position: absolute;
+        background: #f59e0b;
+      }
+      #out {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        z-index: 9;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 4px 8px;
+        font: 12px/1.4 monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="out">running</div>
+    <script>
+      // 为什么单独一个探针：headless Chrome **不驱动 requestAnimationFrame**，
+      // 帧率只能在"有头"（真实合成器）模式下测。本页由 examples/fps-probe.mjs 用
+      // 非 headless 的 Chrome 打开，读回 <pre> 结论。
+      //
+      // 场景与验收口径一致（MDP-NFR-01）：6 路同屏 + 每路叠加层角标与锁定框，
+      // 连续采样 3 段各 1s，取中位数并记录最小值。
+      const IDS = [1, 2, 3, 4, 5, 6]
+      const OVERLAY_SETS = [
+        ['【实时】', '×4', '1590000000000', '视频 1', '来源 A'],
+        ['【回放】', '×2', '1590000000001', '视频 2', '来源 B'],
+        ['【实时】', '×1', '1590000000002', '视频 3', '来源 C'],
+        ['【实时】', '×8', '1590000000003', '序列 1', '来源 D'],
+        ['【回放】', '×3', '1590000000004', '视频 4', '来源 E'],
+        ['【实时】', '×6', '1590000000005', '视频 5', '来源 F'],
+      ]
+      const stage = document.getElementById('stage')
+      const out = document.getElementById('out')
+
+      for (const i of IDS) {
+        const tile = document.createElement('div')
+        tile.className = 'tile'
+        const v = document.createElement('video')
+        v.src = `/media/sample-${i}.mp4`
+        v.loop = true
+        v.muted = true
+        v.playsInline = true
+        v.preload = 'auto'
+        tile.appendChild(v)
+
+        const ov = document.createElement('div')
+        ov.className = 'ov'
+        const texts = OVERLAY_SETS[i - 1]
+        const corners = ['left:0;top:0', 'right:0;top:0', 'left:0;bottom:18px', 'right:0;bottom:0', 'left:40%;bottom:0']
+        for (let k = 0; k < texts.length; k++) {
+          const c = document.createElement('div')
+          c.className = 'corner'
+          c.setAttribute('style', corners[k])
+          c.textContent = texts[k]
+          ov.appendChild(c)
+        }
+        // 两个锁定框（归一化坐标 → 容器百分比，等价于按内容框定位的渲染开销）
+        for (const r of [
+          { x: 42, y: 32, w: 18, h: 26 },
+          { x: 10, y: 60, w: 14, h: 20 },
+        ]) {
+          const b = document.createElement('div')
+          b.className = 'box'
+          b.setAttribute('style', `left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%`)
+          ov.appendChild(b)
+          const cv = document.createElement('div')
+          cv.className = 'cross-v'
+          cv.setAttribute('style', `left:${r.x + r.w / 2}%;top:${r.y + r.h / 2 - 6}%;width:2px;height:12%`)
+          ov.appendChild(cv)
+          const chh = document.createElement('div')
+          chh.className = 'cross-h'
+          chh.setAttribute('style', `left:${r.x + r.w / 2 - 6}%;top:${r.y + r.h / 2}%;width:12%;height:2px`)
+          ov.appendChild(chh)
+        }
+        tile.appendChild(ov)
+        stage.appendChild(tile)
+      }
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+      function measure(ms) {
+        return new Promise((resolve) => {
+          let frames = 0
+          const t0 = performance.now()
+          const loop = () => {
+            frames++
+            if (performance.now() - t0 < ms) requestAnimationFrame(loop)
+            else resolve({ frames, ms: Math.round(performance.now() - t0), fps: Math.round((frames * 1000) / (performance.now() - t0)) })
+          }
+          requestAnimationFrame(loop)
+          setTimeout(() => resolve({ frames, ms, fps: 0, timeout: true }), ms + 3000)
+        })
+      }
+
+      async function main() {
+        const vids = Array.from(document.querySelectorAll('video'))
+        const started = await Promise.all(
+          vids.map((v) =>
+            v.play().then(
+              () => true,
+              () => false,
+            ),
+          ),
+        )
+        await sleep(1500)
+        const playing = vids.filter((v) => v.readyState >= 2 && !v.error && !v.paused).length
+        const samples = []
+        for (let i = 0; i < 3; i++) {
+          samples.push(await measure(1000))
+          await sleep(120)
+        }
+        const sorted = samples.map((s) => s.fps).sort((a, b) => a - b)
+        const r = {
+          videos: vids.length,
+          started: started.filter(Boolean).length,
+          playing,
+          rafSupported: samples.every((s) => !s.timeout),
+          samples: samples.map((s) => s.fps),
+          medianFps: sorted[1] ?? 0,
+          minFps: sorted[0] ?? 0,
+          tileSize: (() => {
+            const t = document.querySelector('.tile').getBoundingClientRect()
+            return `${Math.round(t.width)}x${Math.round(t.height)}`
+          })(),
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+        }
+        out.textContent = 'RESULT:' + JSON.stringify(r)
+      }
+      main().catch((e) => {
+        out.textContent = 'RESULT:' + JSON.stringify({ error: String(e) })
+      })
+    </script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "declarationDir": null,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["examples/runtime-probe", "vite.probe.config.ts"]
+}
